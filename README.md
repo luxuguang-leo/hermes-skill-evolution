@@ -63,11 +63,11 @@ Four weighted dimensions determine case similarity:
 
 ---
 
-## Subsystem 2: Reflection — System Health Maintenance
+## Subsystem 2: Reflection — Full Lifecycle
 
-Three-phase health system that keeps Hermes running lean.
+Three-operation pipeline that keeps Hermes running lean.
 
-### Phase 1: Scan (`scripts/reflection_scan.py`)
+### Scan (`scripts/reflection_scan.py`)
 
 Weekly health metrics:
 
@@ -80,12 +80,12 @@ Weekly health metrics:
 
 Output: `~/.hermes/reflection/scan-report.json`
 
-### Phase 2: Consolidate
+### Consolidate
 
 Memory deduplication — merges duplicate entries, removes exact repeats, compresses similar facts.
 Manual execution with user review. Includes full backup + rollback capability.
 
-### Phase 3: Evolve (Auto-Maintenance)
+### Evolve (Auto-Maintenance)
 
 - Archive confirmed zombies → `~/.hermes/skills/.archive/`
 - Set up automated weekly scan + report
@@ -133,13 +133,13 @@ python3 scripts/reflection_scan.py --days 7
 # 6. Status
 python3 scripts/skill_evolution.py status
 
-# 7. Phase 2: Memory consolidation
-python3 scripts/phase2_consolidate.py --analyze
-python3 scripts/phase2_consolidate.py --auto-apply
+# 7. Consolidate: Memory dedup
+python3 scripts/reflection_consolidate.py --analyze
+python3 scripts/reflection_consolidate.py --auto-apply
 
-# 8. Phase 3: Auto-maintenance
-python3 scripts/phase3_evolve.py --report
-python3 scripts/phase3_evolve.py --archive-zombies --apply
+# 8. Evolve: Auto-maintenance
+python3 scripts/reflection_evolve.py --report
+python3 scripts/reflection_evolve.py --archive-zombies --apply
 ```
 
 ---
@@ -159,9 +159,9 @@ python3 scripts/phase3_evolve.py --archive-zombies --apply
 │   │   └── ARCHITECTURE.md        # Design document
 │   ├── reflection/                # Reflection support (TODO)
 │   │   └── rollback.sh            # Memory consolidation rollback
-│   ├── reflection_scan.py         # Phase 1: health scanner
-│   ├── phase2_consolidate.py      # Phase 2: memory dedup
-│   ├── phase3_evolve.py           # Phase 3: auto-maintenance
+│   ├── reflection_scan.py         # reflection_scan: health scanner
+│   ├── reflection_consolidate.py      # reflection_consolidate: memory dedup
+│   ├── reflection_evolve.py           # reflection_evolve: auto-maintenance
 │   ├── skill_evolution.py         # Evolution CLI orchestrator
 │   └── skill_evolution_hook.py    # Daily incremental hook
 │

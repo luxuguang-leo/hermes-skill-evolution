@@ -132,7 +132,7 @@ HYBRID        = 3+ signature types mixed
 
 ---
 
-## Reflection System (Phase 1-2-3)
+## Reflection System
 
 ### Purpose
 
@@ -144,9 +144,15 @@ sessions → evolution (mine) → skill → usage → reflection (clean) → arc
                 └──── self-evolution loop (weekly cron) ────┘
 ```
 
-### Three Phases
+Three operations, one pipeline:
 
-#### Phase 1: Scan (`scripts/reflection_scan.py`)
+| Operation | Script | What it does |
+|-----------|--------|-------------|
+| **Scan** | `scripts/reflection_scan.py` | Weekly health check: memory, zombies, kanban |
+| **Consolidate** | `scripts/reflection_consolidate.py` | Memory dedup: merge, compress, backup |
+| **Evolve** | `scripts/reflection_evolve.py` | Auto-maintenance: archive zombies, check crons |
+
+#### Scan (`scripts/reflection_scan.py`)
 
 Weekly health scan that measures:
 
@@ -163,19 +169,19 @@ Output: `~/.hermes/reflection/scan-report.json` with all metrics.
 python3 scripts/reflection_scan.py --days 7
 ```
 
-#### Phase 2: Consolidate (`scripts/phase2_consolidate.py`)
+#### Consolidate (`scripts/reflection_consolidate.py`)
 
 Memory deduplication — merges duplicate entries, removes exact repeats, compresses similar facts.
 
 ```bash
 # Analyze current state (read-only)
-python3 scripts/phase2_consolidate.py --analyze
+python3 scripts/reflection_consolidate.py --analyze
 
 # Remove exact duplicates (safe, with backup)
-python3 scripts/phase2_consolidate.py --auto-apply
+python3 scripts/reflection_consolidate.py --auto-apply
 
 # Rollback if needed
-python3 scripts/phase2_consolidate.py --rollback ~/.hermes/backups/phase2-<timestamp>/
+python3 scripts/reflection_consolidate.py --rollback ~/.hermes/backups/phase2-<timestamp>/
 ```
 
 Features:
@@ -183,22 +189,22 @@ Features:
 - Rollback script generated with each backup
 - Similar pair detection (≥85% similarity) for manual review
 
-#### Phase 3: Evolve (`scripts/phase3_evolve.py`)
+#### Evolve (`scripts/reflection_evolve.py`)
 
 Auto-maintenance based on scan results:
 
 ```bash
 # Show all actionable items
-python3 scripts/phase3_evolve.py --report
+python3 scripts/reflection_evolve.py --report
 
 # Dry-run: list zombies that could be archived
-python3 scripts/phase3_evolve.py --archive-zombies
+python3 scripts/reflection_evolve.py --archive-zombies
 
 # Actually archive them
-python3 scripts/phase3_evolve.py --archive-zombies --apply
+python3 scripts/reflection_evolve.py --archive-zombies --apply
 
 # Check cron health
-python3 scripts/phase3_evolve.py --check-crons
+python3 scripts/reflection_evolve.py --check-crons
 ```
 
 ### Cron Integration
@@ -222,7 +228,7 @@ A separate daily hook (`scripts/skill_evolution_hook.py`, cron at 12:00, no-agen
 ~/.hermes/
 ├── scripts/
 │   ├── evolution/                  # Evolution modules
-│   ├── reflection_scan.py          # Phase 1 scanner
+│   ├── reflection_scan.py          # Health scanner
 │   ├── skill_evolution.py          # CLI orchestrator
 │   └── skill_evolution_hook.py     # Daily incremental hook
 │
