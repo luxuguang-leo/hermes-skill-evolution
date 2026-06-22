@@ -129,3 +129,94 @@ HYBRID        = 3+ signature types mixed
 - ✅ Standalone CLI entry point
 - ✅ All output reviewable and editable
 - ✅ No auto-creation of skills — always requires user confirmation
+
+---
+
+## Reflection System (Phase 1-2-3)
+
+### Purpose
+
+The **Reflection System** maintains Hermes system health — cleaning memory, archiving stale skills, and detecting anomalies. It forms the other half of the Skill Evolution lifecycle:
+
+```
+sessions → evolution (mine) → skill → usage → reflection (clean) → archive
+                ↑                                       ↓
+                └──── self-evolution loop (weekly cron) ────┘
+```
+
+### Three Phases
+
+#### Phase 1: Scan (`scripts/reflection_scan.py`)
+
+Weekly health scan that measures:
+
+| Metric | Source | Threshold |
+|--------|--------|-----------|
+| Memory water level | `MEMORY.md` / `USER.md` file sizes | >80% of 2.2KB / 1.4KB limit |
+| Zombie skills | Skill directories modified >60 days ago | Exclude stable-use categories |
+| Kanban blockers | Kanban DB task ages | >48h in running/blocked |
+| Session activity | SessionDB count in 7-day window | >200 or <10 |
+
+Output: `~/.hermes/reflection/scan-report.json` with all metrics.
+
+#### Phase 2: Consolidate
+
+Memory deduplication — merges duplicate entries, removes exact repeats, compresses similar facts. Manual execution (requires user review of merge candidates).
+
+#### Phase 3: Evolve
+
+Auto-maintenance based on scan results:
+- Archive confirmed zombie skills to `~/.hermes/skills/.archive/`
+- Set up automated weekly scan cron
+- Integrate with Evolution system for unified reporting
+
+### Cron Integration
+
+The Reflection system runs together with Evolution in a single weekly cron:
+
+```yaml
+Name: unified-weekly-maintenance
+Schedule: 0 3 * * 0 (Sunday 3:00 AM)
+Flow:
+  1. Run reflection_scan.py (health metrics)
+  2. Run evolution pipeline (case scan + re-cluster)
+  3. Combine results → report only if actionable
+```
+
+A separate daily hook (`scripts/skill_evolution_hook.py`, cron at 12:00, no-agent) silently accumulates new cases.
+
+### File Structure
+
+```
+~/.hermes/
+├── scripts/
+│   ├── evolution/                  # Evolution modules
+│   ├── reflection_scan.py          # Phase 1 scanner
+│   ├── skill_evolution.py          # CLI orchestrator
+│   └── skill_evolution_hook.py     # Daily incremental hook
+│
+├── reflection/
+│   └── scan-report.json            # Latest scan output
+│
+├── agent/
+│   ├── cases/                      # Evolution case DB
+│   ├── candidates/                 # Skill candidates
+│   └── .case_index.json            # Hook state tracker
+│
+└── skills/
+    ├── hermes/skill-evolution/     # This skill
+    └── .archive/                   # Archived zombie skills
+```
+
+### Memory Consolidation Archive
+
+Backups of pre-consolidation memory live in `~/.hermes/backups/`. Rollback:
+```bash
+bash ~/.hermes/scripts/reflection/rollback.sh
+```
+
+### Key Design Decisions
+
+1. **Silent by default** — Both the daily hook and weekly cron stay quiet unless there's something actionable. No noise.
+2. **User approval gate** — No auto-deletion or auto-creation. Every action requires user confirmation.
+3. **Reflection + Evolution as peers** — They share the same cron slot and report format but have orthogonal concerns: Reflection deletes/merges, Evolution creates.

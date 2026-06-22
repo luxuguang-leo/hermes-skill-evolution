@@ -1,35 +1,53 @@
 # Hermes Skill Evolution
 
-> Automatically discover reusable workflow patterns from Hermes Agent session history and precipitate them into Skills.
+> Full lifecycle management for Hermes Agent skills — discover, forge, maintain, and retire.
 
-**Zero modifications to Hermes core.** This is a self-contained add-on that reads SessionDB read-only and writes to its own directories.
+**Zero modifications to Hermes core.** This is a self-contained add-on that reads SessionDB read-only
+and writes to its own directories. Two subsystems work together:
 
-## How It Works
+| Subsystem | Direction | Goal | Action |
+|-----------|-----------|------|--------|
+| **Evolution** (mining) | Bottom-up | Discover new patterns → create skills | Extract cases, cluster, forge |
+| **Reflection** (health) | Top-down | Clean up stale → maintain health | Scan metrics, consolidate, archive |
+
+```
+sessions → evolution (mine) → skill → usage → reflection (clean) → archive
+                ↑                                       ↓
+                └─── self-evolution loop (weekly cron) ────┘
+```
+
+---
+
+## Subsystem 1: Evolution — Auto-Discover New Skills
+
+Mines session history for repeated workflow patterns, clusters them, and generates SKILL.md candidates.
 
 ```
 945 sessions → 155 cases → 14 skill candidates (real data run)
 ```
 
-Three components work together:
+### Components
 
 | Component | What it does | When |
 |-----------|-------------|------|
-| **Hook** (`hook.py`) | Incrementally scans new sessions, extracts cases, checks threshold | Cron every 2h |
-| **CLI** (`skill_evolution.py`) | Scan, cluster, forge, report, install | Manual |
+| **Hook** (`scripts/evolution/hook.py`) | Incrementally scans new sessions, extracts cases, checks threshold | Cron daily 12:00, silent |
+| **CLI** (`scripts/skill_evolution.py`) | Scan, cluster, forge, report, install | Manual |
 | **Case DB** (`agent/cases/`) | Accumulated case files with tool signatures, user intent, n-gram patterns | Persistent |
 
 ### Pipeline
 
-```mermaid
-flowchart LR
-    A[SessionDB] --> B[Case Miner]
-    B --> C[agent/cases/]
-    C --> D[Multi-Factor Clustering]
-    D --> E{3+ similar?}
-    E -->|Yes| F[Skill Forge]
-    F --> G[Skill Candidate]
-    G --> H[Review & Install]
-    H --> I[~/.hermes/skills/]
+```
+SessionDB → Case Miner → agent/cases/ → Multi-Factor Clustering
+                                              ↓
+                                       3+ similar cases?
+                                              ↓
+                                     Yes → Skill Forge
+                                              ↓
+                                     Skill Candidate
+                                              ↓
+                                     Review & Install
+                                              ↓
+                                     ~/.hermes/skills/
 ```
 
 ### Clustering Algorithm
@@ -43,107 +61,125 @@ Four weighted dimensions determine case similarity:
 | N-gram sequence | 0.20 | Bigram/trigram of tool categories (e.g. `SHELL>SHELL>FILE`) |
 | Keyword similarity | 0.20 | Chinese word tokenization + Jaccard similarity |
 
-This correctly distinguishes "terminal-heavy" sessions into sub-categories like "model installs" vs "RSS fixes" vs "hotel queries" — something simple keyword matching cannot do.
+---
+
+## Subsystem 2: Reflection — System Health Maintenance
+
+Three-phase health system that keeps Hermes running lean.
+
+### Phase 1: Scan (`scripts/reflection_scan.py`)
+
+Weekly health metrics:
+
+| Metric | Source | Alert threshold |
+|--------|--------|----------------|
+| Memory water level | MEMORY.md / USER.md size | >80% of 2.2KB / 1.4KB limit |
+| Zombie skills | SKILL.md modification age >60d | Excluding stable-use categories |
+| Kanban blockers | Task stuck in running/blocked | >48 hours |
+| Session activity | 7-day session count | >200 or <10 |
+
+Output: `~/.hermes/reflection/scan-report.json`
+
+### Phase 2: Consolidate
+
+Memory deduplication — merges duplicate entries, removes exact repeats, compresses similar facts.
+Manual execution with user review. Includes full backup + rollback capability.
+
+### Phase 3: Evolve (Auto-Maintenance)
+
+- Archive confirmed zombies → `~/.hermes/skills/.archive/`
+- Set up automated weekly scan + report
+- Integrate Evolution and Reflection into unified cron
+
+---
+
+## Cron Schedule
+
+| Cron | Schedule | Mode | Purpose |
+|------|----------|------|---------|
+| `skill-evolution-hook` | Daily 12:00 | no-agent | Silently accumulate new cases |
+| `unified-weekly-maintenance` | Sunday 03:00 | LLM agent | Full scan + analyze + report only if issues |
+
+The unified cron runs both subsystems in sequence:
+1. `reflection_scan.py --days 7` (health check)
+2. `skill_evolution.py cluster` (re-cluster cases)
+3. Combined analysis → silent if nothing actionable
+
+---
 
 ## Quick Start
 
 ```bash
-# 1. Clone to scripts directory
-cp -r scripts ~/.hermes/
+# 1. Clone
+git clone git@github.com:luxuguang-leo/hermes-skill-evolution.git
+cd hermes-skill-evolution
 
-# 2. Register the cron hook
-hermes cron create \
-  --name skill-evolution \
-  --schedule "every 2h" \
-  --script skill_evolution_hook.py \
-  --no-agent
+# 2. Install
+python3 install.py
 
-# 3. Or run manually
-cd ~/.hermes/scripts
-python3 skill_evolution.py scan --limit 500
-python3 skill_evolution.py forge --min-cases 3
-python3 skill_evolution.py report
+# 3. Run daily hook (incremental)
+python3 scripts/skill_evolution_hook.py
+
+# 4. Manual: full evolution pipeline
+python3 scripts/skill_evolution.py scan --limit 500
+python3 scripts/skill_evolution.py cluster --threshold 0.45
+python3 scripts/skill_evolution.py forge --min-cases 3
+python3 scripts/skill_evolution.py validate
+python3 scripts/skill_evolution.py install <candidate-name>
+
+# 5. Health scan
+python3 scripts/reflection_scan.py --days 7
+
+# 6. Status
+python3 scripts/skill_evolution.py status
 ```
 
-## CLI Reference
+---
 
-```bash
-python3 skill_evolution.py scan --limit 100    # Scan recent sessions
-python3 skill_evolution.py scan --all          # Scan ALL sessions
-python3 skill_evolution.py cluster             # Cluster existing cases
-python3 skill_evolution.py forge --min-cases 3 # Generate skill drafts
-python3 skill_evolution.py report              # Show candidates
-python3 skill_evolution.py validate            # Validate test scenarios
-python3 skill_evolution.py install <name>      # Install as Hermes skill
-python3 skill_evolution.py test                # Run 15 unit tests
-python3 skill_evolution.py status              # System status
-```
-
-## Architecture
+## File Structure
 
 ```
-~/.hermes/scripts/
-├── skill_evolution.py              # CLI orchestrator
-├── skill_evolution_hook.py         # Cron entry wrapper
-└── evolution/
-    ├── __init__.py                    # v0.1.0
-    ├── ARCHITECTURE.md                # Full design doc
-    ├── signatures.py                  # Tool call signature system
-    ├── miner.py                       # Case extraction + clustering (~280 lines)
-    ├── forge.py                       # Skill draft generation (~166 lines)
-    ├── hook.py                        # Incremental cron hook (~127 lines)
-    └── validator.py                   # Candidate validation (~47 lines)
-
-~/.hermes/agent/
-├── cases/                             # Case database
-├── candidates/                        # Skill drafts
-├── .case_index.json                   # Incremental state
-└── clusters.json                      # Cluster results
+~/.hermes/
+├── scripts/
+│   ├── evolution/                  # Evolution core modules
+│   │   ├── miner.py                # Case extraction + clustering
+│   │   ├── forge.py                # LLM skill generation
+│   │   ├── validator.py            # Validation pipeline
+│   │   ├── hook.py                 # Incremental cron hook
+│   │   ├── signatures.py           # Tool-call signature system
+│   │   ├── presenter.py            # Report formatting
+│   │   └── ARCHITECTURE.md         # Design document
+│   ├── reflection/                 # Reflection support
+│   │   └── rollback.sh             # Memory consolidation rollback
+│   ├── reflection_scan.py          # Phase 1 scanner
+│   ├── skill_evolution.py          # CLI orchestrator
+│   └── skill_evolution_hook.py     # Daily incremental hook
+│
+├── reflection/
+│   └── scan-report.json            # Latest scan output
+│
+├── agent/
+│   ├── cases/                      # Evolution case DB
+│   ├── candidates/                 # Skill candidates
+│   └── .case_index.json            # Hook state tracker
+│
+└── skills/
+    ├── hermes/skill-evolution/     # This skill
+    └── .archive/                   # Archived zombie skills
 ```
+
+---
 
 ## Design Principles
 
-1. **No core modifications** — zero changes to `hermes_state.py`, `run_agent.py`, `model_tools.py`
-2. **Incremental** — cron hook processes only new sessions, tracks state via `.case_index.json`
-3. **Zero token cost** — hook runs in `no_agent` mode
-4. **Safe by design** — requires 3+ similar cases before suggesting, never auto-creates skills
-5. **LLM-ready** — forge supports LLM-driven analysis (disabled when API key unavailable)
+1. **Silent by default** — Daily hook and weekly cron only speak when actionable.
+2. **User gates all actions** — No auto-delete, no auto-create. Every write requires confirmation.
+3. **Zero core modifications** — No changes to `run_agent.py`, `hermes_state.py`, or gateway.
+4. **Lossless archives** — Archived skills can always be restored from `.archive/`.
+5. **Graceful degradation** — If pyatv, network, or external deps fail, the pipeline notes the error but continues.
 
-## Test Results
-
-```
-$ python3 skill_evolution.py test
-
-✅ 15/15 tests passed
-  - SHELL-heavy classification
-  - BROWSER-heavy classification
-  - HYBRID detection
-  - Cosine similarity (same type > 0.9, different < 0.5)
-  - N-gram extraction (bigram + trigram)
-  - Chinese intent extraction (install, research, download)
-  - Full pipeline integration (mock session)
-```
-
-## Real-World Data
-
-Tested against 900+ Hermes Agent sessions across months of usage:
-
-| Cluster Type | Example Tasks |
-|-------------|---------------|
-| Command-line workflows | Model installs, configuration setup |
-| File operations | Git history search, version recovery |
-| Web research | Tech research, competitor analysis |
-| Debug/Fix patterns | RSS fixes, config troubleshooting |
-| Monitoring | Status checks, availability queries |
-
-The clustering algorithm correctly distinguishes "terminal-heavy" sessions into sub-categories like "install/setup" vs "debug/fix" vs "information query" — something simple keyword matching cannot do.
-
-## Performance
-
-- Full scan of 945 sessions: **~2 seconds**
-- Incremental run (no new sessions): **~0.3 seconds**
-- Cron hook: **zero token consumption** (no_agent mode)
+---
 
 ## License
 
-MIT
+MIT — Open source at [github.com/luxuguang-leo/hermes-skill-evolution](https://github.com/luxuguang-leo/hermes-skill-evolution)
