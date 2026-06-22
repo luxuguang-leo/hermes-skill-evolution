@@ -128,18 +128,18 @@ python3 scripts/skill_evolution.py validate
 python3 scripts/skill_evolution.py install <candidate-name>
 
 # 5. Health scan
-python3 scripts/reflection_scan.py --days 7
+python3 scripts/reflection/scan.py --days 7
 
 # 6. Status
 python3 scripts/skill_evolution.py status
 
 # 7. Consolidate: Memory dedup
-python3 scripts/reflection_consolidate.py --analyze
-python3 scripts/reflection_consolidate.py --auto-apply
+python3 scripts/reflection/consolidate.py --analyze
+python3 scripts/reflection/consolidate.py --auto-apply
 
 # 8. Evolve: Auto-maintenance
-python3 scripts/reflection_evolve.py --report
-python3 scripts/reflection_evolve.py --archive-zombies --apply
+python3 scripts/reflection/evolve.py --report
+python3 scripts/reflection/evolve.py --archive-zombies --apply
 ```
 
 ---
@@ -149,21 +149,19 @@ python3 scripts/reflection_evolve.py --archive-zombies --apply
 ```
 ~/.hermes/
 ├── scripts/
-│   ├── evolution/                 # Evolution core modules
+│   ├── mining/                    # Pattern discovery (was evolution/)
 │   │   ├── miner.py               # Case extraction + clustering
 │   │   ├── forge.py               # LLM skill generation
-│   │   ├── validator.py           # Validation pipeline
 │   │   ├── hook.py                # Incremental cron hook
+│   │   ├── validator.py           # Validation pipeline
 │   │   ├── signatures.py          # Tool-call signature system
-│   │   ├── presenter.py           # Report formatting
-│   │   └── ARCHITECTURE.md        # Design document
-│   ├── reflection/                # Reflection support (TODO)
-│   │   └── rollback.sh            # Memory consolidation rollback
-│   ├── reflection_scan.py         # reflection_scan: health scanner
-│   ├── reflection_consolidate.py      # reflection_consolidate: memory dedup
-│   ├── reflection_evolve.py           # reflection_evolve: auto-maintenance
-│   ├── skill_evolution.py         # Evolution CLI orchestrator
-│   └── skill_evolution_hook.py    # Daily incremental hook
+│   │   └── ARCHITECTURE.md        # Mining system design doc
+│   ├── reflection/                # Health maintenance system
+│   │   ├── scan.py                # Health scanner
+│   │   ├── consolidate.py         # Memory dedup
+│   │   └── evolve.py              # Auto-maintenance
+│   ├── skill_evolution.py         # CLI orchestrator (mining + reflection)
+│   └── skill_evolution_hook.py    # Daily incremental mining hook
 │
 ├── reflection/
 │   └── scan-report.json            # Latest scan output

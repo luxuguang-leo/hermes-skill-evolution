@@ -96,7 +96,7 @@ HYBRID        = 3+ signature types mixed
 ```
 ~/.hermes/
 ├── scripts/
-│   ├── evolution/           # Core modules
+│   ├── mining/               # Pattern discovery
 │   │   ├── ARCHITECTURE.md     # This document
 │   │   ├── miner.py            # Case extraction + clustering
 │   │   ├── forge.py            # LLM skill generation
@@ -148,11 +148,11 @@ Three operations, one pipeline:
 
 | Operation | Script | What it does |
 |-----------|--------|-------------|
-| **Scan** | `scripts/reflection_scan.py` | Weekly health check: memory, zombies, kanban |
-| **Consolidate** | `scripts/reflection_consolidate.py` | Memory dedup: merge, compress, backup |
-| **Evolve** | `scripts/reflection_evolve.py` | Auto-maintenance: archive zombies, check crons |
+| **Scan** | `scripts/reflection/scan.py` | Weekly health check: memory, zombies, kanban |
+| **Consolidate** | `scripts/reflection/consolidate.py` | Memory dedup: merge, compress, backup |
+| **Evolve** | `scripts/reflection/evolve.py` | Auto-maintenance: archive zombies, check crons |
 
-#### Scan (`scripts/reflection_scan.py`)
+#### Scan (`scripts/reflection/scan.py`)
 
 Weekly health scan that measures:
 
@@ -166,22 +166,22 @@ Weekly health scan that measures:
 Output: `~/.hermes/reflection/scan-report.json` with all metrics.
 
 ```bash
-python3 scripts/reflection_scan.py --days 7
+python3 scripts/reflection/scan.py --days 7
 ```
 
-#### Consolidate (`scripts/reflection_consolidate.py`)
+#### Consolidate (`scripts/reflection/consolidate.py`)
 
 Memory deduplication — merges duplicate entries, removes exact repeats, compresses similar facts.
 
 ```bash
 # Analyze current state (read-only)
-python3 scripts/reflection_consolidate.py --analyze
+python3 scripts/reflection/consolidate.py --analyze
 
 # Remove exact duplicates (safe, with backup)
-python3 scripts/reflection_consolidate.py --auto-apply
+python3 scripts/reflection/consolidate.py --auto-apply
 
 # Rollback if needed
-python3 scripts/reflection_consolidate.py --rollback ~/.hermes/backups/phase2-<timestamp>/
+python3 scripts/reflection/consolidate.py --rollback ~/.hermes/backups/phase2-<timestamp>/
 ```
 
 Features:
@@ -189,22 +189,22 @@ Features:
 - Rollback script generated with each backup
 - Similar pair detection (≥85% similarity) for manual review
 
-#### Evolve (`scripts/reflection_evolve.py`)
+#### Evolve (`scripts/reflection/evolve.py`)
 
 Auto-maintenance based on scan results:
 
 ```bash
 # Show all actionable items
-python3 scripts/reflection_evolve.py --report
+python3 scripts/reflection/evolve.py --report
 
 # Dry-run: list zombies that could be archived
-python3 scripts/reflection_evolve.py --archive-zombies
+python3 scripts/reflection/evolve.py --archive-zombies
 
 # Actually archive them
-python3 scripts/reflection_evolve.py --archive-zombies --apply
+python3 scripts/reflection/evolve.py --archive-zombies --apply
 
 # Check cron health
-python3 scripts/reflection_evolve.py --check-crons
+python3 scripts/reflection/evolve.py --check-crons
 ```
 
 ### Cron Integration
@@ -215,7 +215,7 @@ The Reflection system runs together with Evolution in a single weekly cron:
 Name: unified-weekly-maintenance
 Schedule: 0 3 * * 0 (Sunday 3:00 AM)
 Flow:
-  1. Run reflection_scan.py (health metrics)
+  1. Run scripts/reflection/scan.py (health metrics)
   2. Run evolution pipeline (case scan + re-cluster)
   3. Combine results → report only if actionable
 ```
@@ -227,10 +227,19 @@ A separate daily hook (`scripts/skill_evolution_hook.py`, cron at 12:00, no-agen
 ```
 ~/.hermes/
 ├── scripts/
-│   ├── evolution/                  # Evolution modules
-│   ├── reflection_scan.py          # Health scanner
-│   ├── skill_evolution.py          # CLI orchestrator
-│   └── skill_evolution_hook.py     # Daily incremental hook
+│   ├── mining/                  # Pattern discovery
+│   │   ├── miner.py             # Case extraction + clustering
+│   │   ├── forge.py             # LLM skill generation
+│   │   ├── hook.py              # Incremental cron hook
+│   │   ├── validator.py         # Validation pipeline
+│   │   ├── signatures.py        # Tool-call signature system
+│   │   └── ARCHITECTURE.md      # Mining system design doc
+│   ├── reflection/              # Health maintenance
+│   │   ├── scan.py              # Health scanner
+│   │   ├── consolidate.py       # Memory dedup
+│   │   └── evolve.py            # Auto-maintenance
+│   ├── skill_evolution.py       # CLI orchestrator
+│   └── skill_evolution_hook.py  # Daily incremental hook
 │
 ├── reflection/
 │   └── scan-report.json            # Latest scan output

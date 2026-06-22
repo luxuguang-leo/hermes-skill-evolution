@@ -16,10 +16,10 @@ SCRIPTS_DIR = os.path.expanduser("~/.hermes/scripts")
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 
-from evolution import VERSION
-from evolution.miner import scan_sessions, load_cases, cluster_cases, get_summary, save_case
-from evolution.forge import forge_skill, get_candidate_paths
-from evolution.validator import validate_all_candidates, install_candidate
+from mining import VERSION
+from mining.miner import scan_sessions, load_cases, cluster_cases, get_summary, save_case
+from mining.forge import forge_skill, get_candidate_paths
+from mining.validator import validate_all_candidates, install_candidate
 
 
 def cmd_scan(args):
