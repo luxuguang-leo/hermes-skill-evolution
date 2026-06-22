@@ -159,16 +159,47 @@ Weekly health scan that measures:
 
 Output: `~/.hermes/reflection/scan-report.json` with all metrics.
 
-#### Phase 2: Consolidate
+```bash
+python3 scripts/reflection_scan.py --days 7
+```
 
-Memory deduplication — merges duplicate entries, removes exact repeats, compresses similar facts. Manual execution (requires user review of merge candidates).
+#### Phase 2: Consolidate (`scripts/phase2_consolidate.py`)
 
-#### Phase 3: Evolve
+Memory deduplication — merges duplicate entries, removes exact repeats, compresses similar facts.
+
+```bash
+# Analyze current state (read-only)
+python3 scripts/phase2_consolidate.py --analyze
+
+# Remove exact duplicates (safe, with backup)
+python3 scripts/phase2_consolidate.py --auto-apply
+
+# Rollback if needed
+python3 scripts/phase2_consolidate.py --rollback ~/.hermes/backups/phase2-<timestamp>/
+```
+
+Features:
+- Full backup before any changes
+- Rollback script generated with each backup
+- Similar pair detection (≥85% similarity) for manual review
+
+#### Phase 3: Evolve (`scripts/phase3_evolve.py`)
 
 Auto-maintenance based on scan results:
-- Archive confirmed zombie skills to `~/.hermes/skills/.archive/`
-- Set up automated weekly scan cron
-- Integrate with Evolution system for unified reporting
+
+```bash
+# Show all actionable items
+python3 scripts/phase3_evolve.py --report
+
+# Dry-run: list zombies that could be archived
+python3 scripts/phase3_evolve.py --archive-zombies
+
+# Actually archive them
+python3 scripts/phase3_evolve.py --archive-zombies --apply
+
+# Check cron health
+python3 scripts/phase3_evolve.py --check-crons
+```
 
 ### Cron Integration
 

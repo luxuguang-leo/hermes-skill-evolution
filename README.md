@@ -132,6 +132,14 @@ python3 scripts/reflection_scan.py --days 7
 
 # 6. Status
 python3 scripts/skill_evolution.py status
+
+# 7. Phase 2: Memory consolidation
+python3 scripts/phase2_consolidate.py --analyze
+python3 scripts/phase2_consolidate.py --auto-apply
+
+# 8. Phase 3: Auto-maintenance
+python3 scripts/phase3_evolve.py --report
+python3 scripts/phase3_evolve.py --archive-zombies --apply
 ```
 
 ---
@@ -141,19 +149,21 @@ python3 scripts/skill_evolution.py status
 ```
 ~/.hermes/
 ├── scripts/
-│   ├── evolution/                  # Evolution core modules
-│   │   ├── miner.py                # Case extraction + clustering
-│   │   ├── forge.py                # LLM skill generation
-│   │   ├── validator.py            # Validation pipeline
-│   │   ├── hook.py                 # Incremental cron hook
-│   │   ├── signatures.py           # Tool-call signature system
-│   │   ├── presenter.py            # Report formatting
-│   │   └── ARCHITECTURE.md         # Design document
-│   ├── reflection/                 # Reflection support
-│   │   └── rollback.sh             # Memory consolidation rollback
-│   ├── reflection_scan.py          # Phase 1 scanner
-│   ├── skill_evolution.py          # CLI orchestrator
-│   └── skill_evolution_hook.py     # Daily incremental hook
+│   ├── evolution/                 # Evolution core modules
+│   │   ├── miner.py               # Case extraction + clustering
+│   │   ├── forge.py               # LLM skill generation
+│   │   ├── validator.py           # Validation pipeline
+│   │   ├── hook.py                # Incremental cron hook
+│   │   ├── signatures.py          # Tool-call signature system
+│   │   ├── presenter.py           # Report formatting
+│   │   └── ARCHITECTURE.md        # Design document
+│   ├── reflection/                # Reflection support (TODO)
+│   │   └── rollback.sh            # Memory consolidation rollback
+│   ├── reflection_scan.py         # Phase 1: health scanner
+│   ├── phase2_consolidate.py      # Phase 2: memory dedup
+│   ├── phase3_evolve.py           # Phase 3: auto-maintenance
+│   ├── skill_evolution.py         # Evolution CLI orchestrator
+│   └── skill_evolution_hook.py    # Daily incremental hook
 │
 ├── reflection/
 │   └── scan-report.json            # Latest scan output
